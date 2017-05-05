@@ -276,6 +276,12 @@ connectionGetChunk conn =
 connectionGetChunk' :: Connection -> (ByteString -> (a, ByteString)) -> IO a
 connectionGetChunk' = connectionGetChunkBase "connectionGetChunk'"
 
+
+data InputState
+  = Start
+  | Have !ByteString
+  | End
+
 -- | Wait for input to become available on a connection.
 --
 -- As with 'hWaitForInput', the timeout value is given in milliseconds.  If the
@@ -296,16 +302,16 @@ connectionGetChunkBase loc conn f =
             Nothing -> throwEOF conn loc
             Just buf
               | B.null buf -> do
-                  chunk <- reportExceptions "NCA" $ withBackend getMoreData conn
+                  chunk <- withBackend getMoreData conn
                   if B.null chunk
                      then reportExceptions "NCB" $ closeBuf chunk
                      else reportExceptions "NCC" $ updateBuf chunk
               | otherwise ->
                   reportExceptions "NCD" $ updateBuf buf
   where
-    getMoreData (ConnectionTLS tlsctx) = TLS.recvData tlsctx
-    getMoreData (ConnectionSocket sock) = N.recv sock 1500
-    getMoreData (ConnectionStream h)   = B.hGetSome h (16 * 1024)
+    getMoreData (ConnectionTLS tlsctx) = reportExceptions "TLS" $ TLS.recvData tlsctx
+    getMoreData (ConnectionSocket sock) = reportExceptions "NW" $ N.recv sock 1500
+    getMoreData (ConnectionStream h)   = reportExceptions "Strm" $ B.hGetSome h (16 * 1024)
 
     updateBuf buf = case f buf of (a, !buf') -> return (Just buf', a)
     closeBuf  buf = case f buf of (a, _buf') -> return (Nothing, a)
