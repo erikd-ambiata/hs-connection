@@ -290,18 +290,18 @@ connectionWaitForInput conn timeout_ms = maybe False (const True) <$> timeout ti
         timeout_ns  = timeout_ms * 1000
 
 connectionGetChunkBase :: String -> Connection -> (ByteString -> (a, ByteString)) -> IO a
-connectionGetChunkBase loc conn f = reportExceptions $
+connectionGetChunkBase loc conn f =
     modifyMVar (connectionBuffer conn) $ \m ->
         case m of
             Nothing -> throwEOF conn loc
             Just buf
               | B.null buf -> do
-                  chunk <- withBackend getMoreData conn
+                  chunk <- reportExceptions "NCA" $ withBackend getMoreData conn
                   if B.null chunk
-                     then closeBuf chunk
-                     else updateBuf chunk
+                     then reportExceptions "NCB" $ closeBuf chunk
+                     else reportExceptions "NCC" $ updateBuf chunk
               | otherwise ->
-                  updateBuf buf
+                  reportExceptions "NCD" $ updateBuf buf
   where
     getMoreData (ConnectionTLS tlsctx) = TLS.recvData tlsctx
     getMoreData (ConnectionSocket sock) = N.recv sock 1500
@@ -310,10 +310,10 @@ connectionGetChunkBase loc conn f = reportExceptions $
     updateBuf buf = case f buf of (a, !buf') -> return (Just buf', a)
     closeBuf  buf = case f buf of (a, _buf') -> return (Nothing, a)
 
-reportExceptions :: IO a -> IO a
-reportExceptions action =
+reportExceptions :: String -> IO a -> IO a
+reportExceptions name action =
     E.catch action $ \ (e :: E.SomeException) -> do
-                        putStrLn $ "NC " ++ show e
+                        putStrLn $ name ++ " " ++ show e
                         E.throwIO e
 
 
