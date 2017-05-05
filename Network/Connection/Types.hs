@@ -83,9 +83,9 @@ type ConnectionID = (HostName, PortNumber)
 
 -- | This opaque type represent a connection to a destination.
 data Connection = Connection
-    { connectionBackend :: MVar ConnectionBackend
-    , connectionBuffer  :: MVar (Maybe ByteString) -- ^ this is set to 'Nothing' on EOF
-    , connectionID      :: ConnectionID  -- ^ return a simple tuple of the port and hostname that we're connected to.
+    { connectionBackend :: !(MVar ConnectionBackend)
+    , connectionBuffer  :: !(MVar (Maybe ByteString)) -- ^ this is set to 'Nothing' on EOF
+    , connectionID      :: !ConnectionID  -- ^ return a simple tuple of the port and hostname that we're connected to.
     }
 
 -- | Shared values (certificate store, sessions, ..) between connections
