@@ -205,7 +205,7 @@ connectTo cg cParams = do
             let serv = case portid of
                             N.Service serv -> serv
                             N.PortNumber n -> show n
-                            _              -> error "cannot resolve service" 
+                            _              -> error "cannot resolve service"
             proto <- getProtocolNumber "tcp"
             let hints = defaultHints { addrFlags = [AI_ADDRCONFIG]
                                      , addrProtocol = proto
@@ -290,7 +290,7 @@ connectionWaitForInput conn timeout_ms = maybe False (const True) <$> timeout ti
         timeout_ns  = timeout_ms * 1000
 
 connectionGetChunkBase :: String -> Connection -> (ByteString -> (a, ByteString)) -> IO a
-connectionGetChunkBase loc conn f =
+connectionGetChunkBase loc conn f = reportExceptions $
     modifyMVar (connectionBuffer conn) $ \m ->
         case m of
             Nothing -> throwEOF conn loc
@@ -309,6 +309,13 @@ connectionGetChunkBase loc conn f =
 
     updateBuf buf = case f buf of (a, !buf') -> return (Just buf', a)
     closeBuf  buf = case f buf of (a, _buf') -> return (Nothing, a)
+
+reportExceptions :: IO a -> IO a
+reportExceptions action =
+    E.catch action $ \ (e :: E.SomeException) -> do
+                        putStrLn $ "NC " ++ show e
+                        E.throwIO e
+
 
 -- | Get the next line, using ASCII LF as the line terminator.
 --
